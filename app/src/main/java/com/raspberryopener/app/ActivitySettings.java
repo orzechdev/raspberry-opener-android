@@ -1,4 +1,4 @@
-package com.raspberryopener;
+package com.raspberryopener.app;
 
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -20,6 +20,8 @@ import android.preference.RingtonePreference;
 import android.text.TextUtils;
 import android.view.MenuItem;
 import android.widget.EditText;
+
+import com.raspberryopener.app.R;
 
 import java.util.List;
 

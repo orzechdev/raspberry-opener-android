@@ -3,11 +3,11 @@
     <!-- These settings headers are only used on tablets. -->
 
     <header
-        android:fragment="com.raspberryopener.ActivitySettings$AccountPreferenceFragment"
+        android:fragment="com.raspberryopener.app.ActivitySettings$AccountPreferenceFragment"
         android:title="@string/pref_header_account" />
 
     <header
-        android:fragment="com.raspberryopener.ActivitySettings$DevicePreferenceFragment"
+        android:fragment="com.raspberryopener.app.ActivitySettings$DevicePreferenceFragment"
         android:title="@string/pref_header_device" />
 
 </preference-headers>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.raspberryopener">
+    package="com.raspberryopener.app">
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
@@ -14,7 +14,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".ActivityMain"
+            android:name="com.raspberryopener.app.ActivityMain"
             android:theme="@style/ActivityMain">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -23,7 +23,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".ActivitySettings"
+            android:name="com.raspberryopener.app.ActivitySettings"
             android:label="@string/title_activity_settings"
             android:theme="@style/SettingsTheme">
         </activity>

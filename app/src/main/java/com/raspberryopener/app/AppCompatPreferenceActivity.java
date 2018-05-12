@@ -1,4 +1,4 @@
-package com.raspberryopener;
+package com.raspberryopener.app;
 
 import android.content.res.Configuration;
 import android.os.Bundle;
