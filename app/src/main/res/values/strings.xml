@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">Raspberry Opener</string>
+    <string name="bluetooth_off">Bluetooth is turned off</string>
+    <string name="bluetooth_on">Bluetooth is turned on</string>
+    <string name="bluetooth_not_supported">Device doesn\'t support Bluetooth</string>
     <string name="connected">Connected</string>
     <string name="no_connected">No connected</string>
     <string name="settings">Settings</string>

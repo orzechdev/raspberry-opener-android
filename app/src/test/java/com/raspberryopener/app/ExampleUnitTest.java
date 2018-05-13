@@ -1,4 +1,4 @@
-package com.app;
+package com.raspberryopener.app;
 
 import org.junit.Test;
 

@@ -2,6 +2,7 @@
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/parent_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.app.com.raspberryopener.app.ActivityMain">
@@ -10,7 +11,7 @@
         android:id="@+id/textConnection"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/connected"
+        android:text="@string/bluetooth_off"
         android:textSize="24sp"
         android:textColor="@color/white"
         app:layout_constraintBottom_toTopOf="@+id/buttonSettings"
@@ -19,6 +20,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <RelativeLayout
+        android:id="@+id/buttonsContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="@+id/textConnection"
@@ -26,6 +28,7 @@
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintBottom_toBottomOf="@+id/buttonSettings">
         <LinearLayout
+            android:id="@+id/buttonsContainerLinear"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true">
