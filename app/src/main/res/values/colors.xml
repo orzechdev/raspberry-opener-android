@@ -4,7 +4,9 @@
     <color name="colorPrimaryDark">#31781b</color>
     <color name="colorPrimaryBlack">#404040</color>
     <color name="colorPrimaryBlackDark">#333333</color>
-    <color name="colorAccent">#FF4081</color>
+    <color name="colorAccent">#ff4040</color>
+    <color name="colorPrimaryRed">#fd4040</color>
+    <color name="colorPrimaryRedDark">#b12f2f</color>
     <color name="white">#ffffff</color>
     <color name="black">#000000</color>
     <color name="snackbar_background">#323232</color>

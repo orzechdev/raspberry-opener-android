@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
 import java.util.UUID;
@@ -33,18 +34,30 @@ public class ActivityMain extends AppCompatActivity {
     private static final int PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 1;
     private static boolean bluetoothEnabledByApplication = false;
 
+    // Message types sent from the BluetoothService Handler
+    public static final int MESSAGE_STATE_CHANGE = 1;
+    public static final int MESSAGE_READ = 2;
+    public static final int MESSAGE_WRITE = 3;
+    public static final int MESSAGE_DEVICE_NAME = 4;
+    public static final int MESSAGE_TOAST = 5;
+
+    public static final String DEVICE_NAME = "device_name";
+    private String mConnectedDeviceName = null;
+
     private static boolean isRotating = false;
 
     private BluetoothAdapter mBluetoothAdapter;
     private DeviceReceiver deviceReceiver;
-    private final ReceiverHandler mHandler = new ReceiverHandler(this);
+    private final ReceiverHandler mReceiverHandler = new ReceiverHandler(this);
+    private final ServiceHandler mServiceHandler = new ServiceHandler(this);
+    private BluetoothService mService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        deviceReceiver = new DeviceReceiver(mHandler);
+        deviceReceiver = new DeviceReceiver(mReceiverHandler);
 
         setupButtons();
 
@@ -59,6 +72,8 @@ public class ActivityMain extends AppCompatActivity {
         intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
         intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(deviceReceiver, intentFilter);
+
+        mService = new BluetoothService(this, mServiceHandler);
     }
 
     @Override
@@ -104,6 +119,8 @@ public class ActivityMain extends AppCompatActivity {
 
             if(mBluetoothAdapter.isDiscovering())
                 mBluetoothAdapter.cancelDiscovery();
+
+            mService.stop();
 
             turnOffBluetooth();
         }
@@ -220,16 +237,91 @@ public class ActivityMain extends AppCompatActivity {
             String uuidStr = PreferenceManager.getDefaultSharedPreferences(this).getString("uuid_service", "");
             if(uuidStr.length() == 36) {
                 UUID uuid = Helpers.makeUuid(uuidStr);
-                ConnectThread connectThread = new ConnectThread(device, uuid);
-                connectThread.start();
+                mService.connect(device, uuid);
             }else{
                 Log.i(TAG, "initConnectToDevice wrong UUID");
             }
         }
     }
 
+    // The Handler that gets information back from the BluetoothService
+    private static class ServiceHandler extends Handler {
+        private final String TAG = "ActivityMain SerHandler";
+        private final WeakReference<ActivityMain> mActivity;
+
+        public ServiceHandler(ActivityMain activity) {
+            mActivity = new WeakReference<ActivityMain>(activity);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            ActivityMain activity = mActivity.get();
+            if (activity != null) {
+                switch (msg.what) {
+                    case MESSAGE_STATE_CHANGE:
+                        Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
+                        View parentLayout = activity.findViewById(R.id.parent_layout);
+                        TextView connectionTextView = parentLayout.findViewById(R.id.textConnection);
+                        String connectionInfo;
+                        switch (msg.arg1) {
+                            case BluetoothService.STATE_CONNECTED:
+                                connectionInfo = activity.getResources().getString(R.string.connected);
+                                connectionTextView.setText(connectionInfo);
+                                break;
+                            case BluetoothService.STATE_CONNECTING:
+                                connectionInfo = activity.getResources().getString(R.string.connecting_to_device);
+                                connectionTextView.setText(connectionInfo);
+                                break;
+                            case BluetoothService.STATE_CONNECTION_FAILED:
+                                connectionInfo = activity.getResources().getString(R.string.connecting_failed);
+                                connectionTextView.setText(connectionInfo);
+                                parentLayout.setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
+                                connectionTextView.setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
+                                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
+                                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
+                                Window window = activity.getWindow();
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                    window.setStatusBarColor(ContextCompat.getColor(activity, R.color.colorPrimaryRedDark));
+                                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(activity, R.color.colorPrimaryRed));
+                                    activity.setTaskDescription(taskDescription);
+                                }
+                                break;
+                            case BluetoothService.STATE_CONNECTION_LOST:
+                            case BluetoothService.STATE_LISTEN:
+                            case BluetoothService.STATE_NONE:
+                                break;
+                        }
+                        break;
+//                    case MESSAGE_WRITE:
+//                        if (mLocalEcho) {
+//                            byte[] writeBuf = (byte[]) msg.obj;
+//                            mEmulatorView.write(writeBuf, msg.arg1);
+//                        }
+//
+//                        break;
+///*
+//            case MESSAGE_READ:
+//                byte[] readBuf = (byte[]) msg.obj;
+//                mEmulatorView.write(readBuf, msg.arg1);
+//
+//                break;
+//*/
+                    case MESSAGE_DEVICE_NAME:
+                        // save the connected device's name
+                        activity.mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
+                        Toast.makeText(activity, "Connected to "
+                                + activity.mConnectedDeviceName, Toast.LENGTH_SHORT).show();
+                        break;
+//                    case MESSAGE_TOAST:
+//                        Toast.makeText(getApplicationContext(), msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+//                        break;
+                }
+            }
+        }
+    }
+
     private static class ReceiverHandler extends Handler {
-        private final String TAG = "ActivityMain Handler";
+        private final String TAG = "ActivityMain RecHandler";
         private final WeakReference<ActivityMain> mActivity;
 
         public ReceiverHandler(ActivityMain activity) {
