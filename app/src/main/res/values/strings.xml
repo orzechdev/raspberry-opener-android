@@ -28,6 +28,6 @@
     <string name="pref_title_device_address">Device address</string>
     <string name="pref_title_uuid_service">Service UUID</string>
 
-    <string name="pref_default_device_address">00:1b:10:00:2a:ec</string>
+    <string name="pref_default_device_address">00:00:00:00:00:00</string>
     <string name="pref_default_uuid_service">00001101&#8211;0000&#8211;1000&#8211;8000&#8211;00805F9B34FB</string>
 </resources>

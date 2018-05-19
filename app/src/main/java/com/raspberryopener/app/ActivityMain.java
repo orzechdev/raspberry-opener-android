@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -24,6 +25,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import java.lang.ref.WeakReference;
+import java.util.UUID;
 
 public class ActivityMain extends AppCompatActivity {
     private final String TAG = "ActivityMain";
@@ -74,7 +76,7 @@ public class ActivityMain extends AppCompatActivity {
         turnOnBluetooth();
 
         if(!isRotating) {
-            if(mBluetoothAdapter.isEnabled())
+            if(mBluetoothAdapter.isEnabled() && !mBluetoothAdapter.isDiscovering())
                 mBluetoothAdapter.startDiscovery();
         }
 
@@ -100,7 +102,8 @@ public class ActivityMain extends AppCompatActivity {
         }else{
             isRotating = false;
 
-            mBluetoothAdapter.cancelDiscovery();
+            if(mBluetoothAdapter.isDiscovering())
+                mBluetoothAdapter.cancelDiscovery();
 
             turnOffBluetooth();
         }
@@ -211,6 +214,20 @@ public class ActivityMain extends AppCompatActivity {
         mBluetoothAdapter.cancelDiscovery();
     }
 
+    private void initConnectToDevice(BluetoothDevice device){
+        if(PreferenceManager.getDefaultSharedPreferences(this).contains("uuid_service")){
+            Log.i(TAG, "initConnectToDevice");
+            String uuidStr = PreferenceManager.getDefaultSharedPreferences(this).getString("uuid_service", "");
+            if(uuidStr.length() == 36) {
+                UUID uuid = Helpers.makeUuid(uuidStr);
+                ConnectThread connectThread = new ConnectThread(device, uuid);
+                connectThread.start();
+            }else{
+                Log.i(TAG, "initConnectToDevice wrong UUID");
+            }
+        }
+    }
+
     private static class ReceiverHandler extends Handler {
         private final String TAG = "ActivityMain Handler";
         private final WeakReference<ActivityMain> mActivity;
@@ -223,22 +240,28 @@ public class ActivityMain extends AppCompatActivity {
         public void handleMessage(Message msg) {
             ActivityMain activity = mActivity.get();
             if (activity != null) {
-                final int state = (int)msg.obj;
-                switch (state) {
-                    case BluetoothAdapter.STATE_OFF:
-                        Log.i(TAG, "Bluetooth off");
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_OFF:
-                        Log.i(TAG, "Turning Bluetooth off...");
-                        activity.stopFindBluetoothDevice();
-                        break;
-                    case BluetoothAdapter.STATE_ON:
-                        Log.i(TAG, "Bluetooth on");
-                        activity.startFindBluetoothDevice();
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_ON:
-                        Log.i(TAG, "Turning Bluetooth on...");
-                        break;
+                if(msg.what == DeviceReceiver.MSG_STATE_CHANGED) {
+                    final int state = (int)msg.obj;
+                    switch (state) {
+                        case BluetoothAdapter.STATE_OFF:
+                            Log.i(TAG, "Bluetooth off");
+                            break;
+                        case BluetoothAdapter.STATE_TURNING_OFF:
+                            Log.i(TAG, "Turning Bluetooth off...");
+                            activity.stopFindBluetoothDevice();
+                            break;
+                        case BluetoothAdapter.STATE_ON:
+                            Log.i(TAG, "Bluetooth on");
+                            activity.startFindBluetoothDevice();
+                            break;
+                        case BluetoothAdapter.STATE_TURNING_ON:
+                            Log.i(TAG, "Turning Bluetooth on...");
+                            break;
+                    }
+                }else if(msg.what == DeviceReceiver.MSG_BLUETOOTH_DEVICE){
+                    Log.i(TAG, "Found required bluetooth device");
+                    BluetoothDevice device = (BluetoothDevice)msg.obj;
+                    activity.initConnectToDevice(device);
                 }
             }
         }
