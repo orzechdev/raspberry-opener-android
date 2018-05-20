@@ -5,7 +5,7 @@
     android:id="@+id/parent_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.app.com.raspberryopener.app.ActivityMain">
+    tools:context="com.raspberryopener.app.ActivityMain">
 
     <TextView
         android:id="@+id/textConnection"
@@ -33,29 +33,35 @@
             android:layout_height="wrap_content"
             android:layout_centerInParent="true">
             <Button
+                android:background="@drawable/raised_button"
                 android:id="@+id/buttonOpen"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingTop="16dp"
-                android:paddingBottom="16dp"
                 android:paddingLeft="30dp"
                 android:paddingRight="30dp"
-                android:textSize="16sp"
-                android:layout_marginRight="4dp"
-                android:layout_marginEnd="4dp"
-                android:text="Open" />
+                android:textSize="18sp"
+                android:textColor="@color/text_color"
+                android:layout_marginRight="8dp"
+                android:layout_marginEnd="8dp"
+                android:text="@string/open"
+                android:clickable="true"
+                android:focusable="true"
+                android:enabled="false"/>
             <Button
+                android:background="@drawable/raised_button"
                 android:id="@+id/buttonClose"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingTop="16dp"
-                android:paddingBottom="16dp"
                 android:paddingLeft="30dp"
                 android:paddingRight="30dp"
-                android:textSize="16sp"
-                android:layout_marginLeft="4dp"
-                android:layout_marginStart="4dp"
-                android:text="Close" />
+                android:textSize="18sp"
+                android:textColor="@color/text_color"
+                android:layout_marginLeft="8dp"
+                android:layout_marginStart="8dp"
+                android:text="@string/close"
+                android:clickable="true"
+                android:focusable="true"
+                android:enabled="false"/>
         </LinearLayout>
     </RelativeLayout>
 
@@ -64,11 +70,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/settings"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textColor="@color/white"
         android:textAllCaps="false"
         android:drawablePadding="8dp"
-        android:padding="10dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
         android:background="@drawable/ripple_bg"
         android:drawableLeft="@drawable/ic_settings_black_24dp"
         android:drawableStart="@drawable/ic_settings_black_24dp"

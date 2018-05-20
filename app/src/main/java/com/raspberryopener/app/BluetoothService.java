@@ -22,23 +22,24 @@ public class BluetoothService {
     private ConnectedThread mConnectedThread;
 
     private int mState;
-    private Context mContext;
 
     // Constants that indicate the current connection state
-    public static final int STATE_NONE = 0;       // we're doing nothing
-    public static final int STATE_LISTEN = 1;     // now listening for incoming connections
-    public static final int STATE_CONNECTING = 2; // now initiating an outgoing connection
-    public static final int STATE_CONNECTED = 3;  // now connected to a remote device
-    public static final int STATE_CONNECTION_FAILED = 4;       // we're unable to connect to the device
-    public static final int STATE_CONNECTION_LOST = 5;       // we're unable to connect to the device
+    public static final int STATE_BLUETOOTH_NOT_SUPPORTED = -1; // Device doesn't support bluetooth
+    public static final int STATE_BLUETOOTH_OFF = 0;            // Bluetooth is turned off
+    public static final int STATE_BLUETOOTH_ON = 1;             // Bluetooth is turned on
+    public static final int STATE_NONE = 100;                    // we're doing nothing
+    public static final int STATE_LISTEN = 101;                  // now listening for incoming connections
+    public static final int STATE_CONNECTING = 102;              // now initiating an outgoing connection
+    public static final int STATE_CONNECTED = 103;               // now connected to a remote device
+    public static final int STATE_CONNECTION_FAILED = 104;       // we're unable to connect to the device
+    public static final int STATE_CONNECTION_LOST = 105;         // we're unable to connect to the device
 
-    public BluetoothService(Context context, Handler handler) {
+    public BluetoothService(Handler handler) {
         mHandler = handler;
         mState = STATE_NONE;
-        mContext = context;
     }
 
-    private void setState(int state) {
+    public void setState(int state) {
         Log.i(TAG, "setState() " + mState + " -> " + state);
         mState = state;
 
@@ -46,8 +47,12 @@ public class BluetoothService {
         mHandler.obtainMessage(ActivityMain.MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
     }
 
-    public synchronized int getState() {
+    public int getState() {
         return mState;
+    }
+
+    public void setServiceHandler(Handler serviceHandler) {
+        this.mHandler = serviceHandler;
     }
 
     public void connect(BluetoothDevice device, UUID deviceUUID) {

@@ -2,6 +2,7 @@ package com.raspberryopener.app;
 
 import android.Manifest;
 import android.app.ActivityManager;
+import android.arch.lifecycle.ViewModelProviders;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
@@ -41,21 +42,26 @@ public class ActivityMain extends AppCompatActivity {
     public static final int MESSAGE_DEVICE_NAME = 4;
     public static final int MESSAGE_TOAST = 5;
 
+    private int stateUI = BluetoothService.STATE_NONE;
+
     public static final String DEVICE_NAME = "device_name";
     private String mConnectedDeviceName = null;
 
-    private static boolean isRotating = false;
+    private MainViewModel viewModel;
 
     private BluetoothAdapter mBluetoothAdapter;
     private DeviceReceiver deviceReceiver;
     private final ReceiverHandler mReceiverHandler = new ReceiverHandler(this);
     private final ServiceHandler mServiceHandler = new ServiceHandler(this);
-    private BluetoothService mService;
+    private BluetoothService mBluetoothService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
+
+        viewModel = ViewModelProviders.of(this).get(MainViewModel.class);
 
         deviceReceiver = new DeviceReceiver(mReceiverHandler);
 
@@ -73,7 +79,13 @@ public class ActivityMain extends AppCompatActivity {
         intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(deviceReceiver, intentFilter);
 
-        mService = new BluetoothService(this, mServiceHandler);
+        mBluetoothService = viewModel.getBluetoothService();
+        if(mBluetoothService == null) {
+            mBluetoothService = new BluetoothService(mServiceHandler);
+            viewModel.setBluetoothService(mBluetoothService);
+        }else{
+            mBluetoothService.setServiceHandler(mServiceHandler);
+        }
     }
 
     @Override
@@ -88,15 +100,15 @@ public class ActivityMain extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        turnOnBluetooth();
+        int bluetoothState = mBluetoothService.getState();
 
-        if(!isRotating) {
-            if(mBluetoothAdapter.isEnabled() && !mBluetoothAdapter.isDiscovering())
-                mBluetoothAdapter.startDiscovery();
+        if(bluetoothState != stateUI) {
+            setUI(mBluetoothService.getState());
         }
 
-        if(isRotating)
-            isRotating = false;
+        if(bluetoothState == BluetoothService.STATE_NONE || bluetoothState == BluetoothService.STATE_BLUETOOTH_OFF) {
+            turnOnBluetooth();
+        }
     }
 
     @Override
@@ -112,15 +124,12 @@ public class ActivityMain extends AppCompatActivity {
                 isScreenOn = pm.isInteractive();
         }
 
-        if(isChangingConfigurations() && isScreenOn){
-            isRotating = true;
-        }else{
-            isRotating = false;
+        if(!isChangingConfigurations() || !isScreenOn){
 
-            if(mBluetoothAdapter.isDiscovering())
+            if(mBluetoothAdapter != null && mBluetoothAdapter.isDiscovering())
                 mBluetoothAdapter.cancelDiscovery();
 
-            mService.stop();
+            mBluetoothService.stop();
 
             turnOffBluetooth();
         }
@@ -155,71 +164,29 @@ public class ActivityMain extends AppCompatActivity {
     }
 
     private void turnOnBluetooth(){
-        String connectionInfo;
-        boolean bluetoothIsOn;
         if (mBluetoothAdapter == null) {
             // Device doesn't support Bluetooth
-            connectionInfo = getResources().getString(R.string.bluetooth_not_supported);
-            bluetoothIsOn = false;
+            mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_NOT_SUPPORTED);
         }else{
-            if(!isRotating) {
-                // Device support Bluetooth
-                if (!mBluetoothAdapter.isEnabled()) {
-                    // We do not ask user to turn on bluetooth, we will turn it on without user interaction (without dialog)
-                    mBluetoothAdapter.enable();
-                    bluetoothEnabledByApplication = true;
-                } else {
-                    bluetoothEnabledByApplication = false;
-                }
+            // Device support Bluetooth
+            if (!mBluetoothAdapter.isEnabled()) {
+                // We do not ask user to turn on bluetooth, we will turn it on without user interaction (without dialog)
+                mBluetoothAdapter.enable();
+                bluetoothEnabledByApplication = true;
+            } else {
+                // There is need to start discovery now, because we do not wait for broadcast receiver to start discovery when bluetooth will turned on
+                startFindBluetoothDevice();
+                bluetoothEnabledByApplication = false;
             }
-            connectionInfo = getResources().getString(R.string.bluetooth_on);
-            bluetoothIsOn = true;
-        }
-        // Showing information
-        View parentLayout = findViewById(R.id.parent_layout);
-        TextView connectionTextView = parentLayout.findViewById(R.id.textConnection);
-        connectionTextView.setText(connectionInfo);
-        if(bluetoothIsOn) {
-            parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-            connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-            parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-            parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-            Window window = this.getWindow();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryDark));
-                ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimary));
-                (this).setTaskDescription(taskDescription);
-            }
+            mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_ON);
         }
     }
 
     private void turnOffBluetooth(){
-        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        String connectionInfo = "";
-        boolean bluetoothIsOff;
         if (mBluetoothAdapter != null && bluetoothEnabledByApplication && mBluetoothAdapter.isEnabled()) {
             // Turn off bluetooth
             mBluetoothAdapter.disable();
-            connectionInfo = getResources().getString(R.string.bluetooth_off);
-            bluetoothIsOff = true;
-        }else{
-            bluetoothIsOff = false;
-        }
-        // Showing information
-        if(bluetoothIsOff) {
-            View parentLayout = findViewById(R.id.parent_layout);
-            TextView connectionTextView = parentLayout.findViewById(R.id.textConnection);
-            connectionTextView.setText(connectionInfo);
-            parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-            connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-            parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-            parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-            Window window = this.getWindow();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryBlackDark));
-                ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-                (this).setTaskDescription(taskDescription);
-            }
+            mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_OFF);
         }
     }
 
@@ -237,10 +204,78 @@ public class ActivityMain extends AppCompatActivity {
             String uuidStr = PreferenceManager.getDefaultSharedPreferences(this).getString("uuid_service", "");
             if(uuidStr.length() == 36) {
                 UUID uuid = Helpers.makeUuid(uuidStr);
-                mService.connect(device, uuid);
+                mBluetoothService.connect(device, uuid);
             }else{
                 Log.i(TAG, "initConnectToDevice wrong UUID");
             }
+        }
+    }
+
+    private void setUI(int bluetoothServiceState){
+        stateUI = bluetoothServiceState;
+        View parentLayout = findViewById(R.id.parent_layout);
+        TextView connectionTextView = parentLayout.findViewById(R.id.textConnection);
+        String connectionInfo;
+        Window window;
+        switch (bluetoothServiceState) {
+            case BluetoothService.STATE_BLUETOOTH_NOT_SUPPORTED:
+                connectionInfo = getResources().getString(R.string.bluetooth_not_supported);
+                connectionTextView.setText(connectionInfo);
+                break;
+            case BluetoothService.STATE_BLUETOOTH_ON:
+                connectionInfo = getResources().getString(R.string.bluetooth_on);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+                window = this.getWindow();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryDark));
+                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimary));
+                    this.setTaskDescription(taskDescription);
+                }
+                break;
+            case BluetoothService.STATE_BLUETOOTH_OFF:
+                connectionInfo = getResources().getString(R.string.bluetooth_off);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+                window = this.getWindow();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryBlackDark));
+                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+                    this.setTaskDescription(taskDescription);
+                }
+                break;
+            case BluetoothService.STATE_CONNECTED:
+                connectionInfo = getResources().getString(R.string.connected);
+                connectionTextView.setText(connectionInfo);
+                break;
+            case BluetoothService.STATE_CONNECTING:
+                connectionInfo = getResources().getString(R.string.connecting_to_device);
+                connectionTextView.setText(connectionInfo);
+                break;
+            case BluetoothService.STATE_CONNECTION_FAILED:
+                connectionInfo = getResources().getString(R.string.connecting_failed);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+                window = this.getWindow();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryRedDark));
+                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryRed));
+                    this.setTaskDescription(taskDescription);
+                }
+                break;
+            case BluetoothService.STATE_CONNECTION_LOST:
+            case BluetoothService.STATE_LISTEN:
+            case BluetoothService.STATE_NONE:
+                break;
         }
     }
 
@@ -260,37 +295,7 @@ public class ActivityMain extends AppCompatActivity {
                 switch (msg.what) {
                     case MESSAGE_STATE_CHANGE:
                         Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
-                        View parentLayout = activity.findViewById(R.id.parent_layout);
-                        TextView connectionTextView = parentLayout.findViewById(R.id.textConnection);
-                        String connectionInfo;
-                        switch (msg.arg1) {
-                            case BluetoothService.STATE_CONNECTED:
-                                connectionInfo = activity.getResources().getString(R.string.connected);
-                                connectionTextView.setText(connectionInfo);
-                                break;
-                            case BluetoothService.STATE_CONNECTING:
-                                connectionInfo = activity.getResources().getString(R.string.connecting_to_device);
-                                connectionTextView.setText(connectionInfo);
-                                break;
-                            case BluetoothService.STATE_CONNECTION_FAILED:
-                                connectionInfo = activity.getResources().getString(R.string.connecting_failed);
-                                connectionTextView.setText(connectionInfo);
-                                parentLayout.setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
-                                connectionTextView.setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
-                                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
-                                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(activity, R.color.colorPrimaryRed));
-                                Window window = activity.getWindow();
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                    window.setStatusBarColor(ContextCompat.getColor(activity, R.color.colorPrimaryRedDark));
-                                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(activity, R.color.colorPrimaryRed));
-                                    activity.setTaskDescription(taskDescription);
-                                }
-                                break;
-                            case BluetoothService.STATE_CONNECTION_LOST:
-                            case BluetoothService.STATE_LISTEN:
-                            case BluetoothService.STATE_NONE:
-                                break;
-                        }
+                        activity.setUI(msg.arg1);
                         break;
 //                    case MESSAGE_WRITE:
 //                        if (mLocalEcho) {

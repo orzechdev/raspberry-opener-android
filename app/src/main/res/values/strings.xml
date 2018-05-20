@@ -1,7 +1,9 @@
 <resources>
     <string name="app_name">Raspberry Opener</string>
-    <string name="bluetooth_off">Bluetooth is turned off</string>
-    <string name="bluetooth_on">Bluetooth is turned on</string>
+
+    <!-- Main activity -->
+    <string name="bluetooth_off">Bluetooth is off</string>
+    <string name="bluetooth_on">Bluetooth is on.\nSearching for device</string>
     <string name="bluetooth_not_supported">Device doesn\'t support Bluetooth</string>
     <string name="connecting_to_device">Connecting to device</string>
     <string name="connecting_failed">Connecting failed</string>
@@ -9,6 +11,10 @@
     <string name="connected">Connected</string>
     <string name="no_connected">No connected</string>
     <string name="settings">Settings</string>
+    <string name="open">Open</string>
+    <string name="close">Close</string>
+
+    <!-- Settings -->
     <string name="title_activity_settings">Settings</string>
 
     <!-- Strings related to Settings -->
