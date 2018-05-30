@@ -37,6 +37,10 @@ public class BluetoothService {
     public static final int STATE_CONNECTED = 103;               // now connected to a remote device
     public static final int STATE_CONNECTION_FAILED = 104;       // we're unable to connect to the device
     public static final int STATE_CONNECTION_LOST = 105;         // we're unable to connect to the device
+    public static final int STATE_LOGGED_IN = 106;               // user is logged in on a remote device
+    public static final int STATE_WRONG_DATA = 107;              // user cannot log in, wrong username and password
+    public static final int STATE_WRONG_USERNAME = 108;          // user cannot log in, wrong username
+    public static final int STATE_WRONG_PASSWORD = 109;          // user cannot log in, wrong password
 
     public BluetoothService(Handler handler) {
         mHandler = handler;
@@ -104,6 +108,9 @@ public class BluetoothService {
         mHandler.sendMessage(msg);
 
         setState(STATE_CONNECTED);
+
+        Message msgConnected = mHandler.obtainMessage(ActivityMain.MESSAGE_CONNECTED);
+        msgConnected.sendToTarget();
     }
 
     public synchronized void stop() {
@@ -140,7 +147,7 @@ public class BluetoothService {
         ConnectedThread r;
         // Synchronize a copy of the ConnectedThread
         synchronized (this) {
-            if (mState != STATE_CONNECTED) return;
+            if (mState != STATE_CONNECTED && mState != STATE_LOGGED_IN) return;
             r = mConnectedThread;
         }
         // Perform the write unsynchronized
@@ -283,9 +290,10 @@ public class BluetoothService {
                     // Read from the InputStream.
                     numBytes = mmInStream.read(mmBuffer);
                     // Send the obtained bytes to the UI activity.
+                    String str = new String(mmBuffer, 0, numBytes).trim();
                     Message readMsg = mHandler.obtainMessage(
                             ActivityMain.MESSAGE_READ, numBytes, -1,
-                            mmBuffer);
+                            str);
                     readMsg.sendToTarget();
                 } catch (IOException e) {
                     Log.d(TAG, "Input stream was disconnected", e);
@@ -301,10 +309,11 @@ public class BluetoothService {
             Log.i(TAG, "write 1");
             try {
                 mmOutStream.write(bytes);
+                String str = new String(bytes).trim();
 
                 // Share the sent message with the UI activity.
                 Message writtenMsg = mHandler.obtainMessage(
-                        ActivityMain.MESSAGE_WRITE, -1, -1, mmBuffer);
+                        ActivityMain.MESSAGE_WRITE, -1, -1, str);
                 writtenMsg.sendToTarget();
             } catch (IOException e) {
                 Log.e(TAG, "Error occurred when sending data", e);
