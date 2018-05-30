@@ -8,8 +8,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Message;
+import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
 import android.util.Log;
+
+import java.util.UUID;
 
 public class DeviceReceiver extends BroadcastReceiver {
     private final String TAG = "DeviceReceiver";
@@ -32,6 +35,7 @@ public class DeviceReceiver extends BroadcastReceiver {
             BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             String deviceName = device.getName();
             String deviceHardwareAddress = device.getAddress(); // MAC address
+            ParcelUuid[] deviceUUIDs = device.getUuids(); // MAC address
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
             if(sharedPref.contains("device_address")) {
                 String requiredHardwareAddress = sharedPref.getString("device_address", "").toUpperCase();
@@ -41,7 +45,7 @@ public class DeviceReceiver extends BroadcastReceiver {
                     msg.obj = device;
                     msg.what = MSG_BLUETOOTH_DEVICE;
                     mhandle.sendMessage(msg);
-                    requiredOk = "OK";
+                    requiredOk = "OK, UUIDs: " + deviceUUIDs;
                 }
                 Log.i(TAG, deviceName + ", " + deviceHardwareAddress + " - " + requiredOk);
             }

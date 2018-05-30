@@ -86,6 +86,32 @@ public class ActivityMain extends AppCompatActivity {
         }else{
             mBluetoothService.setServiceHandler(mServiceHandler);
         }
+
+        Button openButton = (Button) findViewById(R.id.buttonOpen);
+        Button closeButton = (Button) findViewById(R.id.buttonClose);
+
+        openButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(!viewModel.isLogin()) {
+                    String msg = "login=admin&pass=abcd";
+                    byte[] msgByte = msg.getBytes();
+                    mBluetoothService.write(msgByte);
+                }
+//                String msg = "openGate";
+//                byte[] msgByte = msg.getBytes();
+//                mBluetoothService.write(msgByte);
+            }
+        });
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String msg = "closeGate";
+                byte[] msgByte = msg.getBytes();
+                mBluetoothService.write(msgByte);
+            }
+        });
+
     }
 
     @Override
@@ -109,6 +135,8 @@ public class ActivityMain extends AppCompatActivity {
         if(bluetoothState == BluetoothService.STATE_NONE || bluetoothState == BluetoothService.STATE_BLUETOOTH_OFF) {
             turnOnBluetooth();
         }
+
+        initConnectToDevice(null);
     }
 
     @Override
@@ -201,7 +229,7 @@ public class ActivityMain extends AppCompatActivity {
     private void initConnectToDevice(BluetoothDevice device){
         if(PreferenceManager.getDefaultSharedPreferences(this).contains("uuid_service")){
             Log.i(TAG, "initConnectToDevice");
-            String uuidStr = PreferenceManager.getDefaultSharedPreferences(this).getString("uuid_service", "");
+            String uuidStr = PreferenceManager.getDefaultSharedPreferences(this).getString("uuid_service", "").toUpperCase();
             if(uuidStr.length() == 36) {
                 UUID uuid = Helpers.makeUuid(uuidStr);
                 mBluetoothService.connect(device, uuid);
@@ -253,6 +281,7 @@ public class ActivityMain extends AppCompatActivity {
             case BluetoothService.STATE_CONNECTED:
                 connectionInfo = getResources().getString(R.string.connected);
                 connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
                 break;
             case BluetoothService.STATE_CONNECTING:
                 connectionInfo = getResources().getString(R.string.connecting_to_device);
