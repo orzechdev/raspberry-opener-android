@@ -8,6 +8,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
@@ -26,9 +27,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.UnsupportedEncodingException;
 import java.lang.ref.WeakReference;
-import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import java.util.UUID;
 
 public class ActivityMain extends AppCompatActivity {
@@ -57,6 +57,7 @@ public class ActivityMain extends AppCompatActivity {
     private final ReceiverHandler mReceiverHandler = new ReceiverHandler(this);
     private final ServiceHandler mServiceHandler = new ServiceHandler(this);
     private BluetoothService mBluetoothService;
+    private BluetoothDevice pairedBluetoothDevice;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,20 +67,46 @@ public class ActivityMain extends AppCompatActivity {
 
         viewModel = ViewModelProviders.of(this).get(MainViewModel.class);
 
-        deviceReceiver = new DeviceReceiver(mReceiverHandler);
-
-        setupButtons();
-
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION);
 
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+        if(sharedPref.contains("device_address")) {
+            String requiredHardwareAddress = sharedPref.getString("device_address", "").toUpperCase();
+
+            // TODO Check paired devices when bluetooth connection is on (receiver on bluetooth enabled)!!!!!!!!!!!!!!
+            
+            BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+
+            if(pairedDevices.size() > 0)
+                Log.i(TAG, "pairedDevices.size() > 0");
+
+            while (pairedDevices.iterator().hasNext()) {
+                BluetoothDevice nextDevice = pairedDevices.iterator().next();
+                if (nextDevice.getAddress().toUpperCase().equals(requiredHardwareAddress)) {
+                    pairedBluetoothDevice = nextDevice;
+                    break;
+                }
+            }
+        }
+
         // Register receiver to obtain nearby bluetooth devices during searching for them
+        deviceReceiver = new DeviceReceiver(mReceiverHandler, pairedBluetoothDevice);
         IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+
+        if(pairedBluetoothDevice == null) {
+            Log.i(TAG, "pairedBluetoothDevice == null");
+            intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+        }
         intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            intentFilter.addAction(BluetoothDevice.ACTION_PAIRING_REQUEST);
+            intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        }
         registerReceiver(deviceReceiver, intentFilter);
 
         mBluetoothService = viewModel.getBluetoothService();
@@ -90,27 +117,7 @@ public class ActivityMain extends AppCompatActivity {
             mBluetoothService.setServiceHandler(mServiceHandler);
         }
 
-        Button openButton = (Button) findViewById(R.id.buttonOpen);
-        Button closeButton = (Button) findViewById(R.id.buttonClose);
-
-        openButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.i(TAG,"openButton click");
-                if(viewModel.isLogin()) {
-                    viewModel.openGate();
-                }
-            }
-        });
-        closeButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.i(TAG,"closeButton click");
-                if(viewModel.isLogin()) {
-                    viewModel.closeGate();
-                }
-            }
-        });
+        setupButtons();
     }
 
     @Override
@@ -135,7 +142,8 @@ public class ActivityMain extends AppCompatActivity {
             turnOnBluetooth();
         }
 
-        initConnectToDevice(null);
+        if(pairedBluetoothDevice != null)
+            initConnectToDevice(pairedBluetoothDevice);
     }
 
     @Override
@@ -171,6 +179,26 @@ public class ActivityMain extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+        Button openButton = findViewById(R.id.buttonOpen);
+        openButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i(TAG,"openButton click");
+                if(viewModel.isLogin()) {
+                    viewModel.openGate();
+                }
+            }
+        });
+        Button closeButton = findViewById(R.id.buttonClose);
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i(TAG,"closeButton click");
+                if(viewModel.isLogin()) {
+                    viewModel.closeGate();
+                }
+            }
+        });
     }
 
     @Override
@@ -202,7 +230,8 @@ public class ActivityMain extends AppCompatActivity {
                 bluetoothEnabledByApplication = true;
             } else {
                 // There is need to start discovery now, because we do not wait for broadcast receiver to start discovery when bluetooth will turned on
-                startFindBluetoothDevice();
+                if(pairedBluetoothDevice == null)
+                    startFindBluetoothDevice();
                 bluetoothEnabledByApplication = false;
             }
             mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_ON);
@@ -225,7 +254,21 @@ public class ActivityMain extends AppCompatActivity {
         mBluetoothAdapter.cancelDiscovery();
     }
 
-    private void initConnectToDevice(BluetoothDevice device){
+    private void pairDevice(BluetoothDevice device) {
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            try {
+                Log.d(TAG, "Start Pairing... with: " + device.getName());
+                device.createBond();
+                Log.d(TAG, "Pairing finished.");
+            } catch (Exception e) {
+                Log.e(TAG, e.getMessage());
+            }
+        }else{
+            Toast.makeText(this,"You must pair Your bluetooth device with bluetooth adapter before connect", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void initConnectToDevice(@NonNull BluetoothDevice device){
         if(PreferenceManager.getDefaultSharedPreferences(this).contains("uuid_service")){
             Log.i(TAG, "initConnectToDevice");
             String uuidStr = PreferenceManager.getDefaultSharedPreferences(this).getString("uuid_service", "").toUpperCase();
@@ -444,7 +487,8 @@ public class ActivityMain extends AppCompatActivity {
                             break;
                         case BluetoothAdapter.STATE_ON:
                             Log.i(TAG, "Bluetooth on");
-                            activity.startFindBluetoothDevice();
+                            if(activity.pairedBluetoothDevice == null)
+                                activity.startFindBluetoothDevice();
                             break;
                         case BluetoothAdapter.STATE_TURNING_ON:
                             Log.i(TAG, "Turning Bluetooth on...");
@@ -452,8 +496,14 @@ public class ActivityMain extends AppCompatActivity {
                     }
                 }else if(msg.what == DeviceReceiver.MSG_BLUETOOTH_DEVICE){
                     Log.i(TAG, "Found required bluetooth device");
+                    // First pair device
                     BluetoothDevice device = (BluetoothDevice)msg.obj;
-                    activity.initConnectToDevice(device);
+//                    activity.initConnectToDevice(device);
+                    activity.pairDevice(device);
+                }else if(msg.what == DeviceReceiver.MSG_BLUETOOTH_DEVICE_PAIRED){
+                    // Second connect to paired device
+                    activity.pairedBluetoothDevice = (BluetoothDevice)msg.obj;
+                    activity.initConnectToDevice(activity.pairedBluetoothDevice);
                 }
             }
         }

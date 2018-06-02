@@ -31,6 +31,8 @@
             <intent-filter>
                 <action android:name="BluetoothDevice.ACTION_FOUND"/>
                 <action android:name="BluetoothAdapter.ACTION_STATE_CHANGED"/>
+                <action android:name="BluetoothDevice.ACTION_PAIRING_REQUEST"/>
+                <action android:name="BlueroothDevice.ACTION_BOND_STATE_CHANGED"/>
             </intent-filter>
         </receiver>
     </application>

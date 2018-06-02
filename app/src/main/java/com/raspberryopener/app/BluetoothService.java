@@ -168,16 +168,6 @@ public class BluetoothService {
             BluetoothSocket tmp = null;
             mmDevice = device;
 
-            BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-
-            List<String> s = new ArrayList<String>();
-            for(BluetoothDevice bt : pairedDevices)
-                s.add(bt.getName());
-
-            if(pairedDevices.iterator().hasNext())
-                mmDevice = pairedDevices.iterator().next();
-
 //            try {
                 Log.i(TAG, "ConnectThread try 1");
                 // Get a BluetoothSocket to connect with the given BluetoothDevice.
@@ -253,10 +243,12 @@ public class BluetoothService {
         private final BluetoothSocket mmSocket;
         private final InputStream mmInStream;
         private final OutputStream mmOutStream;
+        private final BluetoothAdapter mBluetoothAdapter;
         private byte[] mmBuffer; // mmBuffer store for the stream
 
         public ConnectedThread(BluetoothSocket socket) {
             Log.i(TAG, "ConnectedThread 1");
+            mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
             mmSocket = socket;
             InputStream tmpIn = null;
             OutputStream tmpOut = null;
@@ -283,6 +275,7 @@ public class BluetoothService {
             Log.i(TAG, "run 1");
             mmBuffer = new byte[1024];
             int numBytes; // bytes returned from read()
+            mBluetoothAdapter.cancelDiscovery();
 
             // Keep listening to the InputStream until an exception occurs.
             while (true) {
