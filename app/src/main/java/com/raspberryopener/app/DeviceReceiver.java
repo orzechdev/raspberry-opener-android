@@ -19,21 +19,21 @@ public class DeviceReceiver extends BroadcastReceiver {
     private final String TAG = "DeviceReceiver";
 
     private Handler mhandle;
-    private BluetoothDevice mPairedBluetoothDevice;
+    public boolean pairedDeviceNotExists;
     public static final int MSG_BLUETOOTH_DEVICE = 1;
     public static final int MSG_STATE_CHANGED = 2;
     public static final int MSG_BLUETOOTH_DEVICE_PAIRED = 3;
 
-    public DeviceReceiver(Handler mhandle, BluetoothDevice pairedBluetoothDevice) {
+    public DeviceReceiver(Handler mhandle, boolean pairedDeviceNotExists) {
         this.mhandle = mhandle;
-        this.mPairedBluetoothDevice = pairedBluetoothDevice;
+        this.pairedDeviceNotExists = pairedDeviceNotExists;
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         Log.i(TAG, TAG);
-        if(BluetoothDevice.ACTION_FOUND.equals(action) && mPairedBluetoothDevice == null){
+        if(BluetoothDevice.ACTION_FOUND.equals(action) && pairedDeviceNotExists){
             // Discovery has found a device. Get the BluetoothDevice
             // object and its info from the Intent.
             BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);

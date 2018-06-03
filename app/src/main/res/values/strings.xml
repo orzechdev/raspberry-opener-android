@@ -6,9 +6,14 @@
     <string name="bluetooth_on">Bluetooth is on.\nSearching for device</string>
     <string name="bluetooth_not_supported">Device doesn\'t support Bluetooth</string>
     <string name="connecting_to_device">Connecting to device</string>
-    <string name="connecting_failed">Connecting failed</string>
+    <string name="connecting_failed">Connecting failed. Click to try again&#8230;</string>
+    <string name="connecting_lost">Connecting lost. Click to try again&#8230;</string>
     <string name="connection_end">Connection end</string>
     <string name="connected">Connected</string>
+    <string name="logged_in_opening">Logged in\nOpening gate</string>
+    <string name="logged_in_closing">Logged in\nClosing gate</string>
+    <string name="logged_in_opened">Logged in\nGate is opened</string>
+    <string name="logged_in_closed">Logged in\nGate is closed</string>
     <string name="no_connected">No connected</string>
     <string name="logged_in">Logged in</string>
     <string name="wrong_data">Cannot log in with data set in settings</string>

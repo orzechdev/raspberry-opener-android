@@ -46,6 +46,10 @@ public class ActivityMain extends AppCompatActivity {
     public static final int MESSAGE_CONNECTED = 6;
 
     private int stateUI = BluetoothService.STATE_NONE;
+    public static final int THEME_GREEN = 1;
+    public static final int THEME_RED = 2;
+    public static final int THEME_GRAY = 3;
+    private int themeColor = THEME_GRAY;
 
     public static final String DEVICE_NAME = "device_name";
     private String mConnectedDeviceName = null;
@@ -73,29 +77,10 @@ public class ActivityMain extends AppCompatActivity {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION);
 
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-        if(sharedPref.contains("device_address")) {
-            String requiredHardwareAddress = sharedPref.getString("device_address", "").toUpperCase();
-
-            // TODO Check paired devices when bluetooth connection is on (receiver on bluetooth enabled)!!!!!!!!!!!!!!
-            
-            BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-
-            if(pairedDevices.size() > 0)
-                Log.i(TAG, "pairedDevices.size() > 0");
-
-            while (pairedDevices.iterator().hasNext()) {
-                BluetoothDevice nextDevice = pairedDevices.iterator().next();
-                if (nextDevice.getAddress().toUpperCase().equals(requiredHardwareAddress)) {
-                    pairedBluetoothDevice = nextDevice;
-                    break;
-                }
-            }
-        }
+        boolean pairedDeviceNotExists = mBluetoothAdapter != null && mBluetoothAdapter.isEnabled() && !findPairedDevice();
 
         // Register receiver to obtain nearby bluetooth devices during searching for them
-        deviceReceiver = new DeviceReceiver(mReceiverHandler, pairedBluetoothDevice);
+        deviceReceiver = new DeviceReceiver(mReceiverHandler, pairedDeviceNotExists);
         IntentFilter intentFilter = new IntentFilter();
 
         if(pairedBluetoothDevice == null) {
@@ -139,11 +124,25 @@ public class ActivityMain extends AppCompatActivity {
         }
 
         if(bluetoothState == BluetoothService.STATE_NONE || bluetoothState == BluetoothService.STATE_BLUETOOTH_OFF) {
-            turnOnBluetooth();
+            if (mBluetoothAdapter != null) {
+                // Device support Bluetooth
+                if (!mBluetoothAdapter.isEnabled()) {
+                    turnOnBluetooth();
+                } else {
+                    // There is need to start discovery now, because we do not wait for broadcast receiver to start discovery when bluetooth will turned on
+                    if (pairedBluetoothDevice == null) {
+                        startFindBluetoothDevice();
+                        mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_ON_SEARCH);
+                    } else {
+                        initConnectToDevice(pairedBluetoothDevice);
+                    }
+                    bluetoothEnabledByApplication = false;
+                }
+            } else {
+                // Device doesn't support Bluetooth
+                mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_NOT_SUPPORTED);
+            }
         }
-
-        if(pairedBluetoothDevice != null)
-            initConnectToDevice(pairedBluetoothDevice);
     }
 
     @Override
@@ -168,6 +167,28 @@ public class ActivityMain extends AppCompatActivity {
 
             turnOffBluetooth();
         }
+    }
+
+    private boolean findPairedDevice(){
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+        if (sharedPref.contains("device_address")) {
+            String requiredHardwareAddress = sharedPref.getString("device_address", "").toUpperCase();
+
+            BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+
+            if (pairedDevices.size() > 0)
+                Log.i(TAG, "pairedDevices.size() > 0");
+
+            while (pairedDevices.iterator().hasNext()) {
+                BluetoothDevice nextDevice = pairedDevices.iterator().next();
+                if (nextDevice.getAddress().toUpperCase().equals(requiredHardwareAddress)) {
+                    pairedBluetoothDevice = nextDevice;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void setupButtons(){
@@ -199,6 +220,17 @@ public class ActivityMain extends AppCompatActivity {
                 }
             }
         });
+        TextView connectionTextView = findViewById(R.id.textConnection);
+        connectionTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i(TAG,"connectionTextView click");
+                if(stateUI == BluetoothService.STATE_CONNECTION_FAILED || stateUI == BluetoothService.STATE_CONNECTION_LOST){
+                    if(pairedBluetoothDevice != null)
+                        initConnectToDevice(pairedBluetoothDevice);
+                }
+            }
+        });
     }
 
     @Override
@@ -219,23 +251,10 @@ public class ActivityMain extends AppCompatActivity {
     }
 
     private void turnOnBluetooth(){
-        if (mBluetoothAdapter == null) {
-            // Device doesn't support Bluetooth
-            mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_NOT_SUPPORTED);
-        }else{
-            // Device support Bluetooth
-            if (!mBluetoothAdapter.isEnabled()) {
-                // We do not ask user to turn on bluetooth, we will turn it on without user interaction (without dialog)
-                mBluetoothAdapter.enable();
-                bluetoothEnabledByApplication = true;
-            } else {
-                // There is need to start discovery now, because we do not wait for broadcast receiver to start discovery when bluetooth will turned on
-                if(pairedBluetoothDevice == null)
-                    startFindBluetoothDevice();
-                bluetoothEnabledByApplication = false;
-            }
-            mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_ON);
-        }
+        // We do not ask user to turn on bluetooth, we will turn it on without user interaction (without dialog)
+        mBluetoothAdapter.enable();
+        bluetoothEnabledByApplication = true;
+        mBluetoothService.setState(BluetoothService.STATE_BLUETOOTH_ON_SEARCH);
     }
 
     private void turnOffBluetooth(){
@@ -293,109 +312,126 @@ public class ActivityMain extends AppCompatActivity {
             case BluetoothService.STATE_BLUETOOTH_NOT_SUPPORTED:
                 connectionInfo = getResources().getString(R.string.bluetooth_not_supported);
                 connectionTextView.setText(connectionInfo);
+                themeColor = THEME_RED;
                 break;
-            case BluetoothService.STATE_BLUETOOTH_ON:
+            case BluetoothService.STATE_BLUETOOTH_ON_SEARCH:
                 connectionInfo = getResources().getString(R.string.bluetooth_on);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-                window = this.getWindow();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryDark));
-                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimary));
-                    this.setTaskDescription(taskDescription);
-                }
+                themeColor = THEME_GRAY;
                 break;
             case BluetoothService.STATE_BLUETOOTH_OFF:
                 connectionInfo = getResources().getString(R.string.bluetooth_off);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-                window = this.getWindow();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryBlackDark));
-                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryBlack));
-                    this.setTaskDescription(taskDescription);
-                }
+                themeColor = THEME_GRAY;
                 break;
             case BluetoothService.STATE_CONNECTED:
                 connectionInfo = getResources().getString(R.string.connected);
                 connectionTextView.setText(connectionInfo);
+                themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_CONNECTING:
                 connectionInfo = getResources().getString(R.string.connecting_to_device);
                 connectionTextView.setText(connectionInfo);
+                themeColor = THEME_GRAY;
                 break;
             case BluetoothService.STATE_CONNECTION_FAILED:
                 connectionInfo = getResources().getString(R.string.connecting_failed);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                window = this.getWindow();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryRedDark));
-                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                    this.setTaskDescription(taskDescription);
-                }
+                themeColor = THEME_RED;
                 break;
             case BluetoothService.STATE_LOGGED_IN:
                 connectionInfo = getResources().getString(R.string.logged_in);
                 connectionTextView.setText(connectionInfo);
                 parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
                 parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_GATE_OPENING:
+                connectionInfo = getResources().getString(R.string.logged_in_opening);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
+                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_GATE_OPENED:
+                connectionInfo = getResources().getString(R.string.logged_in_opened);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
+                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_GATE_CLOSING:
+                connectionInfo = getResources().getString(R.string.logged_in_closing);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
+                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_GATE_CLOSED:
+                connectionInfo = getResources().getString(R.string.logged_in_closed);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
+                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_WRONG_DATA:
                 connectionInfo = getResources().getString(R.string.wrong_data);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                window = this.getWindow();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryRedDark));
-                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                    this.setTaskDescription(taskDescription);
-                }
+                themeColor = THEME_RED;
                 break;
             case BluetoothService.STATE_WRONG_USERNAME:
                 connectionInfo = getResources().getString(R.string.wrong_username);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                window = this.getWindow();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryRedDark));
-                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                    this.setTaskDescription(taskDescription);
-                }
+                themeColor = THEME_RED;
                 break;
             case BluetoothService.STATE_WRONG_PASSWORD:
                 connectionInfo = getResources().getString(R.string.wrong_password);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                window = this.getWindow();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryRedDark));
-                    ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryRed));
-                    this.setTaskDescription(taskDescription);
-                }
+                themeColor = THEME_RED;
                 break;
             case BluetoothService.STATE_CONNECTION_LOST:
+                connectionInfo = getResources().getString(R.string.connecting_lost);
+                connectionTextView.setText(connectionInfo);
+                themeColor = THEME_RED;
+                break;
             case BluetoothService.STATE_LISTEN:
             case BluetoothService.STATE_NONE:
+                themeColor = THEME_GRAY;
                 break;
+        }
+        if(themeColor == THEME_GREEN){
+            parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+            connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+            parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+            parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+            window = this.getWindow();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryDark));
+                ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimary));
+                this.setTaskDescription(taskDescription);
+            }
+        }else if(themeColor == THEME_RED){
+            parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+            connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+            parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+            parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryRed));
+            window = this.getWindow();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryRedDark));
+                ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryRed));
+                this.setTaskDescription(taskDescription);
+            }
+        }else if(themeColor == THEME_GRAY){
+            parentLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+            connectionTextView.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+            parentLayout.findViewById(R.id.buttonsContainer).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+            parentLayout.findViewById(R.id.buttonsContainerLinear).setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+            window = this.getWindow();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                window.setStatusBarColor(ContextCompat.getColor(this, R.color.colorPrimaryBlackDark));
+                ActivityManager.TaskDescription taskDescription = new ActivityManager.TaskDescription(null, null, ContextCompat.getColor(this, R.color.colorPrimaryBlack));
+                this.setTaskDescription(taskDescription);
+            }
         }
     }
 
@@ -425,21 +461,44 @@ public class ActivityMain extends AppCompatActivity {
                         String readStr = (String) msg.obj;
                         Log.i(TAG, "MESSAGE_READ: " + readStr);
                         if (readStr.startsWith("loginStatus=")) {
-                            Integer loginStatus = Integer.parseInt(readStr.substring(12));
-                            if(loginStatus == 1){
-                                Log.i(TAG, "MESSAGE_READ - Password is correct");
-                                activity.mBluetoothService.setState(BluetoothService.STATE_LOGGED_IN);
+                            String dataGateState = readStr.substring(12);
+                            if(dataGateState.equals("1&gateIsOpened")){
+                                Log.i(TAG, "MESSAGE_READ - Password is correct, gateIsOpened");
+                                activity.mBluetoothService.setState(BluetoothService.STATE_GATE_OPENED);
                                 activity.viewModel.setLogin(true);
-                            }else if(loginStatus == -1){
-                                Log.i(TAG, "MESSAGE_READ - Password is wrong");
-                                activity.mBluetoothService.setState(BluetoothService.STATE_WRONG_PASSWORD);
-                            }else if(loginStatus == -2){
-                                Log.i(TAG, "MESSAGE_READ - Username do not exists");
-                                activity.mBluetoothService.setState(BluetoothService.STATE_WRONG_USERNAME);
+                            }else if(dataGateState.equals("1&gateIsClosed")){
+                                Log.i(TAG, "MESSAGE_READ - Password is correct, gateIsClosed");
+                                activity.mBluetoothService.setState(BluetoothService.STATE_GATE_CLOSED);
+                                activity.viewModel.setLogin(true);
+                            }else{
+                                Integer loginStatus = Integer.parseInt(dataGateState);
+                                if (loginStatus == 1) {
+                                    Log.i(TAG, "MESSAGE_READ - Password is correct");
+                                    activity.mBluetoothService.setState(BluetoothService.STATE_LOGGED_IN);
+                                    activity.viewModel.setLogin(true);
+                                } else if (loginStatus == -1) {
+                                    Log.i(TAG, "MESSAGE_READ - Password is wrong");
+                                    activity.mBluetoothService.setState(BluetoothService.STATE_WRONG_PASSWORD);
+                                } else if (loginStatus == -2) {
+                                    Log.i(TAG, "MESSAGE_READ - Username do not exists");
+                                    activity.mBluetoothService.setState(BluetoothService.STATE_WRONG_USERNAME);
+                                }
                             }
                         }else if(readStr.equals("wrongUserData")){
                             Log.i(TAG, "MESSAGE_READ - Username and/or password not accepted");
                             activity.mBluetoothService.setState(BluetoothService.STATE_WRONG_DATA);
+                        }else if(readStr.equals("openingGate")){
+                            Log.i(TAG, "MESSAGE_READ - openingGate");
+                            activity.mBluetoothService.setState(BluetoothService.STATE_GATE_OPENING);
+                        }else if(readStr.equals("closingGate")){
+                            Log.i(TAG, "MESSAGE_READ - closingGate");
+                            activity.mBluetoothService.setState(BluetoothService.STATE_GATE_CLOSING);
+                        }else if(readStr.equals("gateIsOpened")){
+                            Log.i(TAG, "MESSAGE_READ - gateIsOpened");
+                            activity.mBluetoothService.setState(BluetoothService.STATE_GATE_OPENED);
+                        }else if(readStr.equals("gateIsClosed")){
+                            Log.i(TAG, "MESSAGE_READ - gateIsClosed");
+                            activity.mBluetoothService.setState(BluetoothService.STATE_GATE_CLOSED);
                         }
                         break;
                     case MESSAGE_DEVICE_NAME:
@@ -487,8 +546,12 @@ public class ActivityMain extends AppCompatActivity {
                             break;
                         case BluetoothAdapter.STATE_ON:
                             Log.i(TAG, "Bluetooth on");
+                            if(bluetoothEnabledByApplication)
+                                activity.deviceReceiver.pairedDeviceNotExists = !activity.findPairedDevice();
                             if(activity.pairedBluetoothDevice == null)
                                 activity.startFindBluetoothDevice();
+                            else
+                                activity.initConnectToDevice(activity.pairedBluetoothDevice);
                             break;
                         case BluetoothAdapter.STATE_TURNING_ON:
                             Log.i(TAG, "Turning Bluetooth on...");

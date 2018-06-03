@@ -28,9 +28,9 @@ public class BluetoothService {
     private int mState;
 
     // Constants that indicate the current connection state
-    public static final int STATE_BLUETOOTH_NOT_SUPPORTED = -1; // Device doesn't support bluetooth
-    public static final int STATE_BLUETOOTH_OFF = 0;            // Bluetooth is turned off
-    public static final int STATE_BLUETOOTH_ON = 1;             // Bluetooth is turned on
+    public static final int STATE_BLUETOOTH_NOT_SUPPORTED = -1;  // Device doesn't support bluetooth
+    public static final int STATE_BLUETOOTH_OFF = 0;             // Bluetooth is turned off
+    public static final int STATE_BLUETOOTH_ON_SEARCH = 1;       // Bluetooth is turned on
     public static final int STATE_NONE = 100;                    // we're doing nothing
     public static final int STATE_LISTEN = 101;                  // now listening for incoming connections
     public static final int STATE_CONNECTING = 102;              // now initiating an outgoing connection
@@ -41,6 +41,10 @@ public class BluetoothService {
     public static final int STATE_WRONG_DATA = 107;              // user cannot log in, wrong username and password
     public static final int STATE_WRONG_USERNAME = 108;          // user cannot log in, wrong username
     public static final int STATE_WRONG_PASSWORD = 109;          // user cannot log in, wrong password
+    public static final int STATE_GATE_OPENING = 120;            // user cannot log in, wrong password
+    public static final int STATE_GATE_CLOSING = 121;            // user cannot log in, wrong password
+    public static final int STATE_GATE_OPENED = 122;             // user cannot log in, wrong password
+    public static final int STATE_GATE_CLOSED = 123;             // user cannot log in, wrong password
 
     public BluetoothService(Handler handler) {
         mHandler = handler;
@@ -147,7 +151,10 @@ public class BluetoothService {
         ConnectedThread r;
         // Synchronize a copy of the ConnectedThread
         synchronized (this) {
-            if (mState != STATE_CONNECTED && mState != STATE_LOGGED_IN) return;
+            if (mState != STATE_CONNECTED && mState != STATE_LOGGED_IN && mState != STATE_WRONG_DATA
+                    && mState != STATE_WRONG_PASSWORD && mState != STATE_WRONG_USERNAME
+                    && mState != STATE_GATE_OPENING && mState != STATE_GATE_CLOSING
+                    && mState != STATE_GATE_OPENED && mState != STATE_GATE_CLOSED) return;
             r = mConnectedThread;
         }
         // Perform the write unsynchronized
@@ -209,7 +216,7 @@ public class BluetoothService {
             } catch (Exception exception){//IOException connectException) {
                 Log.i(TAG, "run catch 1");
                 // Unable to connect; close the socket and return.
-        //        connectionFailed();
+                connectionFailed();
                 Log.i(TAG, "run catch 2");
                 try {
                     mmSocket.close();

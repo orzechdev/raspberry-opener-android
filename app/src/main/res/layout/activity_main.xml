@@ -14,10 +14,14 @@
         android:text="@string/bluetooth_off"
         android:textSize="24sp"
         android:textColor="@color/white"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
         app:layout_constraintBottom_toTopOf="@+id/buttonSettings"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        android:clickable="true"
+        android:focusable="true" />
 
     <RelativeLayout
         android:id="@+id/buttonsContainer"

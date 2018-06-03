@@ -6,8 +6,8 @@ android {
         applicationId "com.raspberryopener.app"
         minSdkVersion 15
         targetSdkVersion 27
-        versionCode 2
-        versionName '0.200'
+        versionCode 3
+        versionName '0.500'
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
