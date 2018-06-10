@@ -28,23 +28,27 @@ public class BluetoothService {
     private int mState;
 
     // Constants that indicate the current connection state
-    public static final int STATE_BLUETOOTH_NOT_SUPPORTED = -1;  // Device doesn't support bluetooth
-    public static final int STATE_BLUETOOTH_OFF = 0;             // Bluetooth is turned off
-    public static final int STATE_BLUETOOTH_ON_SEARCH = 1;       // Bluetooth is turned on
-    public static final int STATE_NONE = 100;                    // we're doing nothing
-    public static final int STATE_LISTEN = 101;                  // now listening for incoming connections
-    public static final int STATE_CONNECTING = 102;              // now initiating an outgoing connection
-    public static final int STATE_CONNECTED = 103;               // now connected to a remote device
-    public static final int STATE_CONNECTION_FAILED = 104;       // we're unable to connect to the device
-    public static final int STATE_CONNECTION_LOST = 105;         // we're unable to connect to the device
-    public static final int STATE_LOGGED_IN = 106;               // user is logged in on a remote device
-    public static final int STATE_WRONG_DATA = 107;              // user cannot log in, wrong username and password
-    public static final int STATE_WRONG_USERNAME = 108;          // user cannot log in, wrong username
-    public static final int STATE_WRONG_PASSWORD = 109;          // user cannot log in, wrong password
-    public static final int STATE_GATE_OPENING = 120;            // user cannot log in, wrong password
-    public static final int STATE_GATE_CLOSING = 121;            // user cannot log in, wrong password
-    public static final int STATE_GATE_OPENED = 122;             // user cannot log in, wrong password
-    public static final int STATE_GATE_CLOSED = 123;             // user cannot log in, wrong password
+    public static final int STATE_BLUETOOTH_NOT_SUPPORTED = -1;       // Device doesn't support bluetooth
+    public static final int STATE_BLUETOOTH_OFF = 0;                  // Bluetooth is turned off
+    public static final int STATE_BLUETOOTH_ON_SEARCH = 1;            // Bluetooth is turned on
+    public static final int STATE_NONE = 100;                         // we're doing nothing
+    public static final int STATE_LISTEN = 101;                       // now listening for incoming connections
+    public static final int STATE_CONNECTING = 102;                   // now initiating an outgoing connection
+    public static final int STATE_CONNECTED = 103;                    // now connected to a remote device
+    public static final int STATE_CONNECTION_FAILED = 104;            // we're unable to connect to the device
+    public static final int STATE_CONNECTION_LOST = 105;              // we're unable to connect to the device
+    public static final int STATE_LOGGED_IN = 106;                    // user is logged in on a remote device
+    public static final int STATE_WRONG_DATA = 107;                   // user cannot log in, wrong username and password
+    public static final int STATE_WRONG_USERNAME = 108;               // user cannot log in, wrong username
+    public static final int STATE_WRONG_PASSWORD = 109;               // user cannot log in, wrong password
+    public static final int STATE_GATE_OPENING = 120;                 // user log in, opening gate
+    public static final int STATE_GATE_CLOSING = 121;                 // user log in, closing gate
+    public static final int STATE_GATE_OPENED = 122;                  // user log in, gate is opened
+    public static final int STATE_GATE_CLOSED = 123;                  // user log in, gate is closed
+    public static final int STATE_OBSTACLE = 124;                     // user log in, obstacle in front of gate, cannot close gate
+    public static final int STATE_OBSTACLE_REMOVED = 125;             // user log in, obstacle removed
+    public static final int STATE_OBSTACLE_REMOVED_GATE_OPENED = 126; // user log in, obstacle removed, gate is opened
+    public static final int STATE_OBSTACLE_REMOVED_GATE_CLOSED = 127; // user log in, obstacle removed, gate is closed
 
     public BluetoothService(Handler handler) {
         mHandler = handler;
@@ -154,7 +158,9 @@ public class BluetoothService {
             if (mState != STATE_CONNECTED && mState != STATE_LOGGED_IN && mState != STATE_WRONG_DATA
                     && mState != STATE_WRONG_PASSWORD && mState != STATE_WRONG_USERNAME
                     && mState != STATE_GATE_OPENING && mState != STATE_GATE_CLOSING
-                    && mState != STATE_GATE_OPENED && mState != STATE_GATE_CLOSED) return;
+                    && mState != STATE_GATE_OPENED && mState != STATE_GATE_CLOSED
+                    && mState != STATE_OBSTACLE_REMOVED && mState != STATE_OBSTACLE_REMOVED_GATE_OPENED
+                    && mState != STATE_OBSTACLE_REMOVED_GATE_CLOSED) return;
             r = mConnectedThread;
         }
         // Perform the write unsynchronized

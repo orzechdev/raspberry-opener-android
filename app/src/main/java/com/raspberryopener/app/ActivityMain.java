@@ -349,29 +349,47 @@ public class ActivityMain extends AppCompatActivity {
             case BluetoothService.STATE_GATE_OPENING:
                 connectionInfo = getResources().getString(R.string.logged_in_opening);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
-                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
                 themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_GATE_OPENED:
                 connectionInfo = getResources().getString(R.string.logged_in_opened);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
                 parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
                 themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_GATE_CLOSING:
                 connectionInfo = getResources().getString(R.string.logged_in_closing);
                 connectionTextView.setText(connectionInfo);
-                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
-                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
                 themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_GATE_CLOSED:
                 connectionInfo = getResources().getString(R.string.logged_in_closed);
                 connectionTextView.setText(connectionInfo);
                 parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_OBSTACLE:
+                connectionInfo = getResources().getString(R.string.obstacle);
+                connectionTextView.setText(connectionInfo);
+                themeColor = THEME_RED;
+                break;
+            case BluetoothService.STATE_OBSTACLE_REMOVED:
+                connectionInfo = getResources().getString(R.string.obstacle_removed);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
                 parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_OBSTACLE_REMOVED_GATE_OPENED:
+                connectionInfo = getResources().getString(R.string.obstacle_removed_gate_opened);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
+                themeColor = THEME_GREEN;
+                break;
+            case BluetoothService.STATE_OBSTACLE_REMOVED_GATE_CLOSED:
+                connectionInfo = getResources().getString(R.string.obstacle_removed_gate_closed);
+                connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
                 themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_WRONG_DATA:
@@ -499,6 +517,19 @@ public class ActivityMain extends AppCompatActivity {
                         }else if(readStr.equals("gateIsClosed")){
                             Log.i(TAG, "MESSAGE_READ - gateIsClosed");
                             activity.mBluetoothService.setState(BluetoothService.STATE_GATE_CLOSED);
+                        }else if(readStr.equals("obstacle")){
+                            Log.i(TAG, "MESSAGE_READ - obstacle");
+                            activity.mBluetoothService.setState(BluetoothService.STATE_OBSTACLE);
+                        }else if(readStr.startsWith("obstacleRemoved")){
+                            Log.i(TAG, "MESSAGE_READ - obstacleRemoved");
+                            String dataGateState = readStr.substring(15);
+                            if(dataGateState.equals("&gateIsOpened")){
+                                activity.mBluetoothService.setState(BluetoothService.STATE_OBSTACLE_REMOVED_GATE_OPENED);
+                            }else if(dataGateState.equals("&gateIsClosed")){
+                                activity.mBluetoothService.setState(BluetoothService.STATE_OBSTACLE_REMOVED_GATE_CLOSED);
+                            }else{
+                                activity.mBluetoothService.setState(BluetoothService.STATE_OBSTACLE_REMOVED);
+                            }
                         }
                         break;
                     case MESSAGE_DEVICE_NAME:

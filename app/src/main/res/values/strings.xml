@@ -16,6 +16,10 @@
     <string name="logged_in_closed">Logged in\nGate is closed</string>
     <string name="no_connected">No connected</string>
     <string name="logged_in">Logged in</string>
+    <string name="obstacle">Obstacle in front of gate!\nCannot close</string>
+    <string name="obstacle_removed">Obstacle removed</string>
+    <string name="obstacle_removed_gate_opened">Obstacle removed\nGate is opened</string>
+    <string name="obstacle_removed_gate_closed">Obstacle removed\nGate is closed</string>
     <string name="wrong_data">Cannot log in with data set in settings</string>
     <string name="wrong_username">Wrong username</string>
     <string name="wrong_password">Wrong password</string>

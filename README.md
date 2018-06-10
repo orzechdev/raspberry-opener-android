@@ -4,5 +4,7 @@ Raspberry Opener allows to create server on Raspberry Pi having user accounts an
 
 This repository contains source code of the Android Application.
 
+Application is available to download on [Google Play](https://play.google.com/store/apps/details?id=com.raspberryopener.app)
+
 
 ![Mockup preview](https://raw.githubusercontent.com/orzechdev/raspberry-opener-android/master/README_files/urzadzenia_1.png)
