@@ -327,6 +327,8 @@ public class ActivityMain extends AppCompatActivity {
             case BluetoothService.STATE_CONNECTED:
                 connectionInfo = getResources().getString(R.string.connected);
                 connectionTextView.setText(connectionInfo);
+                parentLayout.findViewById(R.id.buttonOpen).setEnabled(true);
+                parentLayout.findViewById(R.id.buttonClose).setEnabled(true);
                 themeColor = THEME_GREEN;
                 break;
             case BluetoothService.STATE_CONNECTING:
